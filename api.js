@@ -135,8 +135,10 @@ module.exports = async (req, res) => {
     // Handle GET requests (Health Check & Stats)
     if (req.method === 'GET') {
         try {
+            console.log(`🔍 GET request to: "${req.url}"`); // Debug logging
+
             // Root path and /api - full health check with stats
-            if (req.url === '/' || req.url === '/api' || req.url === '/api/health') {
+            if (req.url === '/' || req.url === '/api' || req.url === '/api/health' || req.url === '') {
                 const healthData = await getEnhancedHealth();
                 return res.status(200).json(healthData);
             }
@@ -189,14 +191,7 @@ module.exports = async (req, res) => {
 
     // Handle POST requests (Telegram webhook)
     if (req.method === 'POST') {
-        // Only process Telegram webhook on root path
-        if (req.url !== '/' && req.url !== '/api' && req.url !== '/api/webhook') {
-            return res.status(404).json({
-                status: 'error',
-                message: 'Webhook endpoint not found. Use POST / for Telegram webhook.'
-            });
-        }
-
+        // Accept webhook on ALL paths to avoid routing issues
         try {
             const update = req.body;
             
