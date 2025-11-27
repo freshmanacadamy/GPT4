@@ -1,4 +1,6 @@
-// Add at the top of api.js
+// api.js - Main serverless function for Vercel deployment
+// Complete Telegram Bot API with health checks and webhook handling
+
 // CORE UTILITIES & CONFIG
 const { initializeConfig } = require('./config/environment');
 
@@ -8,21 +10,23 @@ const { getPendingPayments } = require('./database/payments');
 const { getPendingWithdrawals } = require('./database/withdrawals');
 
 // HANDLER IMPORTS (Needed for POST / Telegram webhook)
-// You may need to change these imports based on where your main Telegram message router is.
-// Based on the modular file structure, we assume a main handler file exists.
-const { handleMessage, handleCallbackQuery } = require('./handlers/main'); 
-// Your file snippet also included many other handler imports, 
-// which are likely consumed by handleMessage/handleCallbackQuery:
-// const { handleRegisterTutorial, handleNameInput, ... } = require('./handlers/registration');
-// const { handleAdminPanel, handleAdminApprove, ... } = require('./handlers/admin');
-
+const { handleMessage, handleCallbackQuery } = require('./handlers/main');
 
 // Initialize configuration on startup (Runs on cold start)
-initializeConfig().then(() => {
-    console.log('✅ Bot configuration initialized');
-}).catch(error => {
-    console.error('❌ Failed to initialize config:', error);
-});
+let configInitialized = false;
+
+const initializeApp = async () => {
+    if (!configInitialized) {
+        try {
+            await initializeConfig();
+            console.log('✅ Bot configuration initialized');
+            configInitialized = true;
+        } catch (error) {
+            console.error('❌ Failed to initialize config:', error);
+            throw error;
+        }
+    }
+};
 
 // Global error handlers
 process.on('unhandledRejection', (error) => {
@@ -31,67 +35,220 @@ process.on('unhandledRejection', (error) => {
 
 process.on('uncaughtException', (error) => {
     console.error('🔴 Uncaught Exception:', error);
+    process.exit(1);
 });
+
+// Health check without database dependencies
+const getBasicHealth = () => {
+    return {
+        status: 'online',
+        message: 'Tutorial Registration Bot is running on Vercel!',
+        timestamp: new Date().toISOString(),
+        version: process.env.npm_package_version || '1.0.0',
+        environment: process.env.NODE_ENV || 'development'
+    };
+};
+
+// Enhanced health check with database stats
+const getEnhancedHealth = async () => {
+    try {
+        const [allUsers, verifiedUsers, pendingPayments, pendingWithdrawals] = await Promise.all([
+            getAllUsers(),
+            getVerifiedUsers(),
+            getPendingPayments(),
+            getPendingWithdrawals()
+        ]);
+
+        const userCount = Object.keys(allUsers).length;
+        const verifiedCount = verifiedUsers.length;
+        const pendingPaymentsCount = pendingPayments.length;
+        const pendingWithdrawalsCount = pendingWithdrawals.length;
+        const totalReferrals = Object.values(allUsers).reduce((sum, user) => sum + (user.referralCount || 0), 0);
+
+        return {
+            ...getBasicHealth(),
+            stats: {
+                users: userCount,
+                verified: verifiedCount,
+                pendingPayments: pendingPaymentsCount,
+                pendingWithdrawals: pendingWithdrawalsCount,
+                referrals: totalReferrals,
+                verificationRate: userCount > 0 ? ((verifiedCount / userCount) * 100).toFixed(2) + '%' : '0%'
+            },
+            database: 'connected'
+        };
+    } catch (error) {
+        console.error('❌ Database error in enhanced health check:', error);
+        return {
+            ...getBasicHealth(),
+            database: 'disconnected',
+            warning: 'Database temporarily unavailable',
+            error: error.message
+        };
+    }
+};
+
+// Process Telegram update
+const processTelegramUpdate = async (update) => {
+    if (update.message) {
+        await handleMessage(update.message);
+    } else if (update.callback_query) {
+        await handleCallbackQuery(update.callback_query);
+    } else if (update.inline_query) {
+        console.log('ℹ️ Inline query received (not implemented)');
+    } else if (update.chosen_inline_result) {
+        console.log('ℹ️ Chosen inline result received (not implemented)');
+    } else {
+        console.log('ℹ️ Unhandled update type:', Object.keys(update).filter(key => key !== 'update_id'));
+    }
+};
 
 // Export the serverless function handler
 module.exports = async (req, res) => {
+    // Set response headers
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('X-Powered-By', 'Telegram-Bot-API');
     
-    // Handle GET requests (Health Check & Stats)
-    // This part is the fix for the 405 error on /
-    if (req.method === 'GET') {
-        // Only respond to the root path and /api for health checks
-        if (req.url === '/' || req.url === '/api') {
-            try {
-                // Fetch stats for the comprehensive health check
-                const allUsers = await getAllUsers();
-                const verifiedUsers = await getVerifiedUsers();
-                const pendingPayments = await getPendingPayments();
-                const pendingWithdrawals = await getPendingWithdrawals();
+    // Optional: Add CORS headers if needed for frontend
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-                // Return a detailed 200 JSON status
-                return res.status(200).json({
-                    status: 'online',
-                    message: 'Tutorial Registration Bot is running on Vercel!',
-                    timestamp: new Date().toISOString(),
-                    stats: {
-                        users: Object.keys(allUsers).length,
-                        verified: verifiedUsers.length,
-                        pendingPayments: pendingPayments.length,
-                        pendingWithdrawals: pendingWithdrawals.length,
-                        referrals: Object.values(allUsers).reduce((sum, u) => sum + (u.referralCount || 0), 0)
-                    }
-                });
-            } catch (error) {
-                 // If the database fails, return 500 instead of 405
-                console.error('❌ Database connection failed during GET request:', error);
-                return res.status(500).json({ error: 'Database connection failed' });
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    // Initialize app configuration on first request
+    if (!configInitialized) {
+        try {
+            await initializeApp();
+        } catch (error) {
+            return res.status(503).json({
+                status: 'error',
+                message: 'Service configuration failed',
+                error: error.message
+            });
+        }
+    }
+
+    // Handle GET requests (Health Check & Stats)
+    if (req.method === 'GET') {
+        try {
+            // Root path and /api - full health check with stats
+            if (req.url === '/' || req.url === '/api' || req.url === '/api/health') {
+                const healthData = await getEnhancedHealth();
+                return res.status(200).json(healthData);
             }
+            
+            // Basic health check without database
+            if (req.url === '/api/ping' || req.url === '/ping') {
+                return res.status(200).json(getBasicHealth());
+            }
+            
+            // Stats endpoint
+            if (req.url === '/api/stats' || req.url === '/stats') {
+                try {
+                    const healthData = await getEnhancedHealth();
+                    return res.status(200).json({
+                        status: 'success',
+                        data: healthData.stats,
+                        timestamp: healthData.timestamp
+                    });
+                } catch (error) {
+                    return res.status(503).json({
+                        status: 'error',
+                        message: 'Stats temporarily unavailable',
+                        error: error.message
+                    });
+                }
+            }
+
+            // Return 404 for all other GET paths
+            return res.status(404).json({
+                status: 'error',
+                message: 'Endpoint not found',
+                availableEndpoints: [
+                    'GET / - Full health check with stats',
+                    'GET /api/health - Full health check with stats',
+                    'GET /api/ping - Basic health check',
+                    'GET /api/stats - Statistics only',
+                    'POST / - Telegram webhook'
+                ]
+            });
+
+        } catch (error) {
+            console.error('❌ Unexpected error in GET handler:', error);
+            return res.status(500).json({
+                status: 'error',
+                message: 'Internal server error',
+                error: error.message
+            });
         }
     }
 
     // Handle POST requests (Telegram webhook)
     if (req.method === 'POST') {
+        // Only process Telegram webhook on root path
+        if (req.url !== '/' && req.url !== '/api' && req.url !== '/api/webhook') {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Webhook endpoint not found. Use POST / for Telegram webhook.'
+            });
+        }
+
         try {
             const update = req.body;
-            console.log('📨 Webhook update received');
-
-            if (update.message) {
-                // Route message to your main handler logic
-                await handleMessage(update.message);
-            } else if (update.callback_query) {
-                // Route callback query to your main handler logic
-                await handleCallbackQuery(update.callback_query);
+            
+            // Validate update format
+            if (!update || typeof update !== 'object') {
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'Invalid update format: expected JSON object'
+                });
             }
 
-            // Always return 200 to Telegram quickly, acknowledging the update
-            return res.status(200).json({ ok: true });
+            if (!update.update_id) {
+                return res.status(400).json({
+                    status: 'error', 
+                    message: 'Invalid Telegram update: missing update_id'
+                });
+            }
+
+            console.log(`📨 Webhook update #${update.update_id} received`);
+            console.log('Update type:', Object.keys(update).filter(key => key !== 'update_id'));
+
+            // Process the update asynchronously (don't await to respond quickly to Telegram)
+            processTelegramUpdate(update).catch(error => {
+                console.error(`❌ Error processing update ${update.update_id}:`, error);
+            });
+
+            // Always return 200 quickly to acknowledge receipt
+            return res.status(200).json({ 
+                ok: true,
+                update_id: update.update_id,
+                message: 'Update received and processing'
+            });
+
         } catch (error) {
-            console.error('❌ Error processing update:', error);
-            // Return 500 on internal bot error
-            return res.status(500).json({ error: 'Internal server error' });
+            console.error('❌ Error in webhook handler:', error);
+            return res.status(500).json({
+                status: 'error',
+                message: 'Internal server error processing update',
+                error: error.message
+            });
         }
     }
 
-    // Fall-through for all other methods/paths (e.g., PUT, DELETE, or GET on /favicon.ico)
-    return res.status(405).json({ error: 'Method not allowed' });
+    // Handle unsupported HTTP methods
+    return res.status(405).json({
+        status: 'error',
+        message: 'Method not allowed',
+        allowedMethods: ['GET', 'POST', 'OPTIONS']
+    });
 };
+
+// Export utility functions for testing
+module.exports.getBasicHealth = getBasicHealth;
+module.exports.getEnhancedHealth = getEnhancedHealth;
+module.exports.processTelegramUpdate = processTelegramUpdate;
