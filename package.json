@@ -1,0 +1,25 @@
+{
+  "name": "telegram-tutorial-registration-bot",
+  "version": "2.0.0",
+  "description": "Modular Telegram bot for tutorial registration with referral system",
+  "main": "api.js",
+  "scripts": {
+    "dev": "node api.js",
+    "start": "node api.js"
+  },
+  "dependencies": {
+    "node-telegram-bot-api": "^0.64.0",
+    "firebase-admin": "^12.0.0",
+    "dotenv": "^16.4.5"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "tutorial",
+    "registration",
+    "firebase",
+    "vercel"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
