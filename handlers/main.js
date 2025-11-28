@@ -1,11 +1,7 @@
-// handlers/main.js - BASIC WORKING VERSION
-const bot = require('../config/bot');
-const { showMainMenu } = require('./menu');
-const { handleHelp } = require('./help');
+// ADD THESE DEBUG IMPORTS AT THE TOP
+console.log('🔄 Loading handlers/main.js...');
 
-console.log('✅ handlers/main.js loaded');
-
-// Main message handler
+// Main message handler - ADD DEBUG LOGGING
 const handleMessage = async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
@@ -16,95 +12,59 @@ const handleMessage = async (msg) => {
     try {
         // Handle commands
         if (text.startsWith('/')) {
-            switch (text) {
-                case '/start':
-                    console.log('🔄 Processing /start command');
-                    await bot.sendMessage(chatId, 
-                        '🎉 Welcome to Tutorial Registration Bot!\\n\\n' +
-                        '✅ Full bot is working!\\n' +
-                        '📚 Register for comprehensive tutorials\\n' +
-                        '💰 Easy payment process\\n' +
-                        '🎁 Earn referral rewards\\n\\n' +
-                        'Choose an option below:',
-                        { parse_mode: 'Markdown' }
-                    );
-                    await showMainMenu(chatId);
-                    break;
-                    
-                case '/help':
-                case '❓ Help':
-                    await handleHelp(msg);
-                    break;
-                    
-                case '/menu':
-                    await showMainMenu(chatId);
-                    break;
-                    
-                default:
-                    await showMainMenu(chatId);
-            }
+            console.log(`🔍 Detected command: ${text}`);
+            // ... keep your existing command handling code
         } else {
-            // Handle button clicks
+            // Handle button clicks - ADD DEBUG LOGGING
+            console.log(`🔍 Processing button: "${text}"`);
+            
             switch (text) {
                 case '📝 Register':
-                    await bot.sendMessage(chatId, 
-                        '📝 Registration System\\n\\n' +
-                        'This feature will be available soon!\\n' +
-                        'Currently in development...',
-                        { parse_mode: 'Markdown' }
-                    );
+                    console.log('🎯 Calling handleRegisterTutorial...');
+                    await handleRegisterTutorial(msg);
+                    console.log('✅ handleRegisterTutorial completed');
                     break;
                     
                 case '💰 Pay Fee':
-                    await bot.sendMessage(chatId, 
-                        '💰 Payment System\\n\\n' +
-                        'This feature will be available soon!\\n' +
-                        'Currently in development...',
-                        { parse_mode: 'Markdown' }
-                    );
+                    console.log('🎯 Calling handlePayFee...');
+                    await handlePayFee(msg);
+                    console.log('✅ handlePayFee completed');
                     break;
                     
                 case '🎁 Invite & Earn':
-                    await bot.sendMessage(chatId, 
-                        '🎁 Referral System\\n\\n' +
-                        'This feature will be available soon!\\n' +
-                        'Currently in development...',
-                        { parse_mode: 'Markdown' }
-                    );
+                    console.log('🎯 Calling handleInviteEarn...');
+                    await handleInviteEarn(msg);
+                    console.log('✅ handleInviteEarn completed');
                     break;
                     
                 case '👤 My Profile':
-                    await bot.sendMessage(chatId, 
-                        '👤 Profile System\\n\\n' +
-                        'This feature will be available soon!\\n' +
-                        'Currently in development...',
-                        { parse_mode: 'Markdown' }
-                    );
-                    break;
-                    
-                case '📌 Rules':
-                    await bot.sendMessage(chatId, 
-                        '📌 Rules & Guidelines\\n\\n' +
-                        '• Be respectful\\n' +
-                        '• Follow instructions\\n' +
-                        '• No spam allowed\\n' +
-                        '• Enjoy learning!',
-                        { parse_mode: 'Markdown' }
-                    );
+                    console.log('🎯 Calling handleMyProfile...');
+                    await handleMyProfile(msg);
+                    console.log('✅ handleMyProfile completed');
                     break;
                     
                 case '📚 Free Trial':
-                    await bot.sendMessage(chatId, 
-                        '📚 Trial Materials\\n\\n' +
-                        'Free trial content coming soon!\\n' +
-                        'Check back later for updates.',
-                        { parse_mode: 'Markdown' }
-                    );
+                    console.log('🎯 Calling handleTrialMaterials...');
+                    await handleTrialMaterials(msg);
+                    console.log('✅ handleTrialMaterials completed');
+                    break;
+                    
+                case '📌 Rules':
+                    console.log('🎯 Calling handleRules...');
+                    await handleRules(msg);
+                    console.log('✅ handleRules completed');
+                    break;
+                    
+                case '❓ Help':
+                    console.log('🎯 Calling handleHelp...');
+                    await handleHelp(msg);
+                    console.log('✅ handleHelp completed');
                     break;
                     
                 default:
+                    console.log('❓ Unknown button text, sending default response');
                     await bot.sendMessage(chatId, 
-                        `You said: "${text}"\\n\\nUse the menu buttons or send /help.`,
+                        `Unknown command: "${text}"\\n\\nUse the menu buttons or /help`,
                         { parse_mode: 'Markdown' }
                     );
             }
@@ -113,29 +73,6 @@ const handleMessage = async (msg) => {
     } catch (error) {
         console.error('❌ ERROR in handleMessage:', error);
         console.error('Error stack:', error.stack);
-        
-        try {
-            await bot.sendMessage(chatId, 
-                `❌ Error: ${error.message}\\n\\nPlease try again.`,
-                { parse_mode: 'Markdown' }
-            );
-        } catch (e) {
-            console.error('Could not send error message:', e);
-        }
+        // ... keep your existing error handling
     }
-};
-
-// Callback handler
-const handleCallbackQuery = async (callbackQuery) => {
-    console.log('🔄 Callback received:', callbackQuery.data);
-    try {
-        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Feature coming soon!' });
-    } catch (error) {
-        console.error('Callback error:', error);
-    }
-};
-
-module.exports = {
-    handleMessage,
-    handleCallbackQuery
 };
