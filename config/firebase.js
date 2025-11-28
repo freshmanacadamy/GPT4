@@ -1,21 +1,17 @@
 const admin = require('firebase-admin');
 const environment = require('./environment');
 
-let db = null;
-let storage = null;
+// Remove these global variables - THEY CAUSE THE ERROR
+// let db = null;
+// let storage = null;
 
 const initializeFirebase = () => {
-    // ✅ FIX: Check if already initialized
-    if (db && storage) {
-        return { db, storage };
-    }
-
     try {
         const serviceAccount = {
             type: 'service_account',
             project_id: environment.FIREBASE_PROJECT_ID,
             private_key_id: environment.FIREBASE_PRIVATE_KEY_ID,
-            private_key: environment.FIREBASE_PRIVATE_KEY,
+            private_key: environment.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
             client_email: environment.FIREBASE_CLIENT_EMAIL,
             client_id: environment.FIREBASE_CLIENT_ID,
             auth_uri: 'https://accounts.google.com/o/oauth2/auth',
@@ -32,7 +28,7 @@ const initializeFirebase = () => {
             throw new Error(`Missing Firebase environment variables: ${missingVars.join(', ')}`);
         }
 
-        // ✅ FIX: Only initialize if no apps exist
+        // Initialize only if no apps exist
         if (!admin.apps.length) {
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount),
@@ -40,8 +36,8 @@ const initializeFirebase = () => {
             });
         }
 
-        db = admin.firestore();
-        storage = admin.storage();
+        const db = admin.firestore();
+        const storage = admin.storage();
         
         console.log('✅ Firebase initialized successfully');
         return { db, storage };
@@ -51,11 +47,11 @@ const initializeFirebase = () => {
     }
 };
 
-// ✅ FIX: Initialize immediately but handle properly
-const firebaseInstance = initializeFirebase();
+// ✅ FIX: Simple initialization without destructuring
+const firebase = initializeFirebase();
 
 module.exports = {
-    db: firebaseInstance.db,
-    storage: firebaseInstance.storage,
+    db: firebase.db,
+    storage: firebase.storage,
     admin
 };
