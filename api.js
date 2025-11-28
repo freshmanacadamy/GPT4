@@ -1,5 +1,8 @@
-// api-simple.js - Simplified version for testing
+// api-simple.js - Fixed version that actually responds
 const TelegramBot = require('node-telegram-bot-api');
+
+// Initialize bot
+const bot = new TelegramBot(process.env.BOT_TOKEN);
 
 // Global error handlers
 process.on('unhandledRejection', (error) => {
@@ -23,7 +26,7 @@ module.exports = async (req, res) => {
     if (req.method === 'GET') {
         return res.status(200).json({
             status: 'online',
-            message: 'Bot is running (Simplified Version)',
+            message: 'Bot is running and WILL respond to messages!',
             timestamp: new Date().toISOString()
         });
     }
@@ -39,10 +42,28 @@ module.exports = async (req, res) => {
 
             console.log(`📨 Update received: ${update.update_id}`);
             
-            // Quick response without processing
+            // Process the message and respond to user
+            if (update.message) {
+                const chatId = update.message.chat.id;
+                const text = update.message.text;
+                
+                console.log(`💬 Message from ${chatId}: ${text}`);
+                
+                // Send actual response to user
+                if (text === '/start') {
+                    await bot.sendMessage(chatId, '🎉 Welcome! Bot is working! Send me any message.');
+                } else {
+                    await bot.sendMessage(chatId, `You said: "${text}"`);
+                }
+                
+                console.log(`✅ Replied to ${chatId}`);
+            }
+            
+            // Quick response to Telegram
             return res.status(200).json({ 
                 ok: true,
-                update_id: update.update_id
+                update_id: update.update_id,
+                message: 'Update processed and replied to user'
             });
 
         } catch (error) {
