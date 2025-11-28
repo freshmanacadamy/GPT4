@@ -44,9 +44,53 @@ const handleMessage = async (msg) => {
                     await showMainMenu(chatId);
                     break;
                     
+                case '/register':
+                    console.log('📝 Register command received');
+                    await handleRegisterTutorial(msg);
+                    break;
+                    
+                case '/pay':
+                case '/payment':
+                    console.log('💰 Pay command received');
+                    await handlePayFee(msg);
+                    break;
+                    
+                case '/profile':
+                case '/myprofile':
+                    console.log('👤 Profile command received');
+                    await handleMyProfile(msg);
+                    break;
+                    
+                case '/invite':
+                case '/referral':
+                    console.log('🎁 Invite command received');
+                    await handleInviteEarn(msg);
+                    break;
+                    
+                case '/leaderboard':
+                    console.log('🏆 Leaderboard command received');
+                    await handleLeaderboard(msg);
+                    break;
+                    
+                case '/referrals':
+                case '/myreferrals':
+                    console.log('👥 My referrals command received');
+                    await handleMyReferrals(msg);
+                    break;
+                    
+                case '/trial':
+                case '/materials':
+                    console.log('📚 Trial materials command received');
+                    await handleTrialMaterials(msg);
+                    break;
+                    
+                case '/rules':
+                    console.log('📌 Rules command received');
+                    await handleRules(msg);
+                    break;
+                    
                 case '/help':
-                case '❓ Help':
-                    console.log('❓ Help requested');
+                    console.log('❓ Help command received');
                     await handleHelp(msg);
                     break;
                     
@@ -65,11 +109,23 @@ const handleMessage = async (msg) => {
                     await showMainMenu(chatId);
                     break;
                     
+                case '/status':
+                    console.log('📈 Status requested');
+                    // You can add a status command handler here
+                    await bot.sendMessage(chatId, 
+                        '📊 *Bot Status*\\n\\n' +
+                        '✅ Online and running\\n' +
+                        '🔧 All systems operational\\n' +
+                        '👥 Use /help for assistance',
+                        { parse_mode: 'Markdown' }
+                    );
+                    break;
+                    
                 default:
                     console.log('❓ Unknown command, showing menu');
                     await showMainMenu(chatId);
             }
-            return; // ✅ CRITICAL FIX: Prevent falling through to button handling
+            return; // ✅ CRITICAL: Prevent falling through to button handling
         } else {
             // Handle button clicks and regular messages
             console.log(`🔍 Processing button/text: "${text}"`);
@@ -183,6 +239,7 @@ const handleCallbackQuery = async (callbackQuery) => {
             await handleViewTrialMaterial(callbackQuery);
         } else {
             console.log('❓ Unknown callback type');
+            await bot.answerCallbackQuery(callbackQuery.id, { text: 'Unknown action' });
         }
         
         // Answer all callback queries
