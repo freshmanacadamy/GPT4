@@ -1,11 +1,12 @@
 {
-  "name": "telegram-tutorial-registration-bot",
-  "version": "2.0.0",
-  "description": "Modular Telegram bot for tutorial registration with referral system",
+  "name": "telegram-tutorial-bot",
+  "version": "1.0.0",
+  "description": "Advanced Telegram bot for tutorial registration with admin system",
   "main": "api.js",
   "scripts": {
     "dev": "node api.js",
-    "start": "node api.js"
+    "start": "node api.js",
+    "test": "echo \"No tests specified\" && exit 0"
   },
   "dependencies": {
     "node-telegram-bot-api": "^0.64.0",
