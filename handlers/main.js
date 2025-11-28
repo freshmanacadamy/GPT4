@@ -1,15 +1,15 @@
-// handlers/main.js - FIXED VERSION
+// handlers/main.js - COMPLETE FIXED VERSION
 const bot = require('../config/bot');
 
-// Import handlers - DEFER LOADING TO AVOID CIRCULAR DEPENDENCIES
-const getRegistrationHandlers = () => require('./registration');
-const getPaymentHandlers = () => require('./payment');
-const getProfileHandlers = () => require('./profile');
-const getReferralHandlers = () => require('./referral');
-const getHelpHandlers = () => require('./help');
-const getAdminHandlers = () => require('./admin');
-const getMenuHandlers = () => require('./menu');
-const getTrialHandlers = () => require('./trial');
+// Import all handlers
+const { handleRegisterTutorial, handleNameInput, handleContactShared, handleNavigation, handleRegistrationCallback } = require('./registration');
+const { handlePayFee, handlePaymentScreenshot } = require('./payment');
+const { handleMyProfile, handleProfileText, handleProfileCallback } = require('./profile');
+const { handleInviteEarn, handleLeaderboard, handleMyReferrals, handleReferralStart } = require('./referral');
+const { handleHelp, handleRules } = require('./help');
+const { handleAdminPanel, handleDailyStatsCommand, handleAdminApprovePayment, handleAdminRejectPayment } = require('./admin');
+const { showMainMenu } = require('./menu');
+const { handleTrialMaterials, handleViewTrialMaterial } = require('./trial');
 
 // Main message handler
 const handleMessage = async (msg) => {
@@ -22,151 +22,184 @@ const handleMessage = async (msg) => {
     try {
         // Handle photo messages (payment screenshots)
         if (msg.photo) {
-            const { handlePaymentScreenshot } = getPaymentHandlers();
+            console.log('📸 Photo received for payment');
             await handlePaymentScreenshot(msg);
             return;
         }
         
         // Handle contact sharing
         if (msg.contact) {
-            const { handleContactShared } = getRegistrationHandlers();
+            console.log('📱 Contact shared');
             await handleContactShared(msg);
             return;
         }
 
         // Handle commands and text messages
         if (text.startsWith('/')) {
+            console.log(`🔍 Processing command: ${text}`);
             switch (text) {
                 case '/start':
-                    const { handleReferralStart } = getReferralHandlers();
+                    console.log('🚀 Starting bot with referral check');
                     await handleReferralStart(msg);
-                    const { showMainMenu } = getMenuHandlers();
                     await showMainMenu(chatId);
                     break;
                     
                 case '/help':
                 case '❓ Help':
-                    const { handleHelp } = getHelpHandlers();
+                    console.log('❓ Help requested');
                     await handleHelp(msg);
                     break;
                     
                 case '/admin':
-                    const { handleAdminPanel } = getAdminHandlers();
+                    console.log('👑 Admin panel requested');
                     await handleAdminPanel(msg);
                     break;
                     
                 case '/dailystats':
-                    const { handleDailyStatsCommand } = getAdminHandlers();
+                    console.log('📊 Daily stats requested');
                     await handleDailyStatsCommand(msg);
                     break;
                     
                 case '/menu':
-                    const { showMainMenu } = getMenuHandlers();
+                    console.log('🏠 Menu requested');
                     await showMainMenu(chatId);
                     break;
                     
                 default:
-                    const { showMainMenu } = getMenuHandlers();
+                    console.log('❓ Unknown command, showing menu');
                     await showMainMenu(chatId);
             }
+            return; // ✅ CRITICAL FIX: Prevent falling through to button handling
         } else {
             // Handle button clicks and regular messages
+            console.log(`🔍 Processing button/text: "${text}"`);
+            
             switch (text) {
                 case '📝 Register':
-                    const { handleRegisterTutorial } = getRegistrationHandlers();
+                    console.log('📝 Register button clicked');
                     await handleRegisterTutorial(msg);
                     break;
                     
                 case '💰 Pay Fee':
-                    const { handlePayFee } = getPaymentHandlers();
+                    console.log('💰 Pay Fee button clicked');
                     await handlePayFee(msg);
                     break;
                     
                 case '🎁 Invite & Earn':
-                    const { handleInviteEarn } = getReferralHandlers();
+                    console.log('🎁 Invite button clicked');
                     await handleInviteEarn(msg);
                     break;
                     
                 case '🏆 Leaderboard':
-                    const { handleLeaderboard } = getReferralHandlers();
+                    console.log('🏆 Leaderboard button clicked');
                     await handleLeaderboard(msg);
                     break;
                     
                 case '👤 My Profile':
-                    const { handleMyProfile } = getProfileHandlers();
+                    console.log('👤 Profile button clicked');
                     await handleMyProfile(msg);
                     break;
                     
                 case '📌 Rules':
-                    const { handleRules } = getHelpHandlers();
+                    console.log('📌 Rules button clicked');
                     await handleRules(msg);
                     break;
                     
                 case '❓ Help':
-                    const { handleHelp } = getHelpHandlers();
+                    console.log('❓ Help button clicked');
                     await handleHelp(msg);
                     break;
                     
                 case '📚 Free Trial':
-                    const { handleTrialMaterials } = getTrialHandlers();
+                    console.log('📚 Trial button clicked');
                     await handleTrialMaterials(msg);
                     break;
                     
                 default:
+                    console.log('🔍 Processing as registration/text input');
                     // Handle registration flow and other states
-                    const { handleNavigation } = getRegistrationHandlers();
-                    if (await handleNavigation(msg)) return;
-                    
-                    const { handleProfileText } = getProfileHandlers();
-                    if (await handleProfileText(msg)) return;
+                    if (await handleNavigation(msg)) {
+                        console.log('✅ Handled by navigation');
+                        return;
+                    }
+                    if (await handleProfileText(msg)) {
+                        console.log('✅ Handled by profile text');
+                        return;
+                    }
                     
                     // Handle name input for registration
-                    const { handleNameInput } = getRegistrationHandlers();
+                    console.log('📝 Processing as name input');
                     await handleNameInput(msg);
             }
         }
+        
     } catch (error) {
         console.error('❌ Error in handleMessage:', error);
-        await bot.sendMessage(chatId, '❌ An error occurred. Please try again.');
+        console.error('Error stack:', error.stack);
+        
+        try {
+            await bot.sendMessage(chatId, 
+                '❌ An error occurred. Please try again.\\n\\nIf the problem persists, contact support.',
+                { parse_mode: 'Markdown' }
+            );
+        } catch (sendError) {
+            console.error('❌ Failed to send error message:', sendError);
+        }
     }
 };
 
 // Callback query handler
 const handleCallbackQuery = async (callbackQuery) => {
     const data = callbackQuery.data;
+    const chatId = callbackQuery.message.chat.id;
     
-    console.log(`🔄 Callback: ${data}`);
+    console.log(`🔄 Callback received: ${data} from ${chatId}`);
     
     try {
         // Route to appropriate handler
         if (data.startsWith('admin_')) {
-            const { handleAdminApprovePayment } = getAdminHandlers();
+            console.log('👑 Admin callback detected');
             if (data.startsWith('admin_approve_payment_')) {
+                console.log('✅ Admin payment approval');
                 await handleAdminApprovePayment(callbackQuery);
+            } else if (data.startsWith('admin_reject_payment_')) {
+                console.log('❌ Admin payment rejection');
+                // await handleAdminRejectPayment(callbackQuery);
             }
         } else if (data.startsWith('stream_') || data.startsWith('payment_')) {
-            const { handleRegistrationCallback } = getRegistrationHandlers();
+            console.log('📝 Registration callback');
             await handleRegistrationCallback(callbackQuery);
         } else if (data.startsWith('profile_') || data.startsWith('payment_update_')) {
-            const { handleProfileCallback } = getProfileHandlers();
+            console.log('👤 Profile callback');
             await handleProfileCallback(callbackQuery);
         } else if (data === 'leaderboard') {
-            const { handleLeaderboard } = getReferralHandlers();
+            console.log('🏆 Leaderboard callback');
             await handleLeaderboard(callbackQuery.message);
         } else if (data === 'my_referrals') {
-            const { handleMyReferrals } = getReferralHandlers();
+            console.log('👥 My referrals callback');
             await handleMyReferrals(callbackQuery.message);
         } else if (data.startsWith('trial_view_')) {
-            const { handleViewTrialMaterial } = getTrialHandlers();
+            console.log('📚 Trial material callback');
             await handleViewTrialMaterial(callbackQuery);
+        } else {
+            console.log('❓ Unknown callback type');
         }
         
         // Answer all callback queries
-        await bot.answerCallbackQuery(callbackQuery.id);
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Processed' });
+        console.log('✅ Callback answered');
         
     } catch (error) {
         console.error('❌ Error in handleCallbackQuery:', error);
-        await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Error processing request' });
+        console.error('Error stack:', error.stack);
+        
+        try {
+            await bot.answerCallbackQuery(callbackQuery.id, { 
+                text: '❌ Error processing request' 
+            });
+        } catch (answerError) {
+            console.error('❌ Failed to answer callback:', answerError);
+        }
     }
 };
 
