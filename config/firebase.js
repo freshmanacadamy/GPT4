@@ -14,25 +14,28 @@ const initializeFirebase = () => {
 
     try {
         console.log('🔄 Initializing Firebase...');
-        
-        // Validate environment variables
+
+        // Validate required environment variables
         const requiredEnvVars = [
             'FIREBASE_PROJECT_ID',
-            'FIREBASE_PRIVATE_KEY', 
-            'FIREBASE_CLIENT_EMAIL'
+            'FIREBASE_PRIVATE_KEY',
+            'FIREBASE_PRIVATE_KEY_ID',
+            'FIREBASE_CLIENT_EMAIL',
+            'FIREBASE_CLIENT_ID',
+            'FIREBASE_CLIENT_X509_CERT_URL'
         ];
-        
+
         const missingVars = requiredEnvVars.filter(key => !environment[key]);
         if (missingVars.length > 0) {
             throw new Error(`Missing Firebase environment variables: ${missingVars.join(', ')}`);
         }
 
-        // Create service account configuration
+        // Create service account config
         const serviceAccount = {
             type: 'service_account',
             project_id: environment.FIREBASE_PROJECT_ID,
             private_key_id: environment.FIREBASE_PRIVATE_KEY_ID,
-            private_key: environment.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+            private_key: environment.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
             client_email: environment.FIREBASE_CLIENT_EMAIL,
             client_id: environment.FIREBASE_CLIENT_ID,
             auth_uri: 'https://accounts.google.com/o/oauth2/auth',
@@ -41,38 +44,32 @@ const initializeFirebase = () => {
             client_x509_cert_url: environment.FIREBASE_CLIENT_X509_CERT_URL
         };
 
-        // Initialize Firebase Admin SDK only if no apps exist
+        // Initialize Firebase only once
         if (admin.apps.length === 0) {
             console.log('📡 Creating new Firebase app instance...');
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount),
+                storageBucket: `${environment.FIREBASE_PROJECT_ID}.appspot.com`,
                 databaseURL: `https://${environment.FIREBASE_PROJECT_ID}.firebaseio.com`
             });
         } else {
             console.log('♻️ Using existing Firebase app instance...');
         }
 
-        // Get Firestore and Storage instances
         db = admin.firestore();
         storage = admin.storage();
         isInitialized = true;
 
         console.log('✅ Firebase initialized successfully');
-        console.log(`📊 Project: ${environment.FIREBASE_PROJECT_ID}`);
-        
         return { db, storage };
 
     } catch (error) {
         console.error('❌ Firebase initialization failed:', error);
-        
-        // Provide more detailed error information
+
         if (error.message.includes('private key')) {
-            console.error('🔑 Private key format issue. Make sure FIREBASE_PRIVATE_KEY has proper newlines.');
+            console.error('🔑 Firebase private key formatting error.');
         }
-        if (error.message.includes('certificate')) {
-            console.error('📜 Certificate validation failed. Check FIREBASE_CLIENT_X509_CERT_URL.');
-        }
-        
+
         throw error;
     }
 };
@@ -81,12 +78,12 @@ const initializeFirebase = () => {
 const testFirebaseConnection = async () => {
     try {
         const { db: testDb } = initializeFirebase();
-        // Try a simple operation to test connection
+
         await testDb.collection('test_connection').doc('ping').set({
             timestamp: new Date(),
             status: 'connected'
         }, { merge: true });
-        
+
         console.log('✅ Firebase connection test successful');
         return true;
     } catch (error) {
@@ -95,7 +92,7 @@ const testFirebaseConnection = async () => {
     }
 };
 
-// Initialize Firebase immediately but handle cold starts
+// On-demand initialization
 const initializeOnDemand = () => {
     if (!isInitialized) {
         return initializeFirebase();
@@ -103,33 +100,32 @@ const initializeOnDemand = () => {
     return { db, storage };
 };
 
-// Get database instance with lazy initialization
+// Get database instance
 const getDatabase = () => {
     if (!db) {
-        const instances = initializeOnDemand();
-        return instances.db;
+        return initializeOnDemand().db;
     }
     return db;
 };
 
-// Get storage instance with lazy initialization  
+// Get storage instance
 const getStorage = () => {
     if (!storage) {
-        const instances = initializeOnDemand();
-        return instances.storage;
+        return initializeOnDemand().storage;
     }
     return storage;
 };
 
-// Health check function
+// Health check
 const checkFirebaseHealth = async () => {
     try {
         const database = getDatabase();
         await database.collection('health_check').doc('status').get();
+
         return {
             status: 'connected',
             database: 'online',
-            storage: storage ? 'online' : 'disabled',
+            storage: storage ? 'online' : 'offline',
             projectId: environment.FIREBASE_PROJECT_ID
         };
     } catch (error) {
@@ -142,24 +138,21 @@ const checkFirebaseHealth = async () => {
     }
 };
 
-// Initialize on module load (for serverless cold starts)
+// Immediately initialize on load
 console.log('🚀 Loading Firebase configuration...');
 const firebaseInstances = initializeFirebase();
 
-// Export instances and utilities
+// Export modules
 module.exports = {
-    // Main instances
     db: firebaseInstances.db,
     storage: firebaseInstances.storage,
     admin,
-    
-    // Utility functions
+
     getDatabase,
     getStorage,
     checkFirebaseHealth,
     testFirebaseConnection,
     initializeFirebase,
-    
-    // Status
+
     isInitialized: () => isInitialized
 };
